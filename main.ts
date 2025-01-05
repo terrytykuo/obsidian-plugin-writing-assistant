@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
 
@@ -23,7 +23,12 @@ export default class UncoverPlugin extends Plugin {
 			id: 'uncover-relationships',
 			name: 'Uncover Relationships',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				const currentFilePath = view.file.path;
+				const currentFilePath = view.file?.path;
+				if (!currentFilePath) {
+					editor.replaceSelection('Could not determine the current file path.');
+					return;
+				}
+
 				const folderPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
 				const relatedNotes = this.getNotesWithTag('#uncover', folderPath);
 
@@ -76,7 +81,14 @@ export default class UncoverPlugin extends Plugin {
 		}
 
 		const notesContent = await Promise.all(
-			notes.map(notePath => this.app.vault.read(this.app.vault.getAbstractFileByPath(notePath)))
+			notes.map(async notePath => {
+				const file = this.app.vault.getAbstractFileByPath(notePath);
+				if (file && file instanceof TFile) {
+					return this.app.vault.read(file);
+				}
+				console.error(`File not found or not a valid TFile: ${notePath}`);
+				return ''; // Return empty string if invalid
+			})
 		);
 
 		const prompt = `Uncover relationships between the following notes:\n${notesContent.join('\n')}`;
@@ -93,7 +105,12 @@ export default class UncoverPlugin extends Plugin {
 					{ role: 'user', content: prompt },
 				],
 			});
-			return response.choices[0].message.content;
+			const messageContent = response.choices[0]?.message?.content;
+			if (!messageContent) {
+				console.error('No content returned from OpenAI API.');
+				return 'Error generating content. No response content.';
+			}
+			return messageContent;
 		} catch (error) {
 			console.error('Error calling OpenAI API:', error);
 			return 'Error generating content. Please check the console for details.';
