@@ -20,8 +20,8 @@ export default class UncoverPlugin extends Plugin {
 
 		// This adds a command to uncover relationships between notes
 		this.addCommand({
-			id: 'uncover-relationships',
-			name: 'Uncover Relationships',
+			id: 'uncover',
+			name: '/uncover - Uncover Relationships',
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const currentFilePath = view.file?.path;
 				if (!currentFilePath) {
@@ -30,10 +30,11 @@ export default class UncoverPlugin extends Plugin {
 				}
 
 				const folderPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
-				const relatedNotes = this.getNotesWithTag('#uncover', folderPath);
+				console.log(`Searching in folder: ${folderPath}`); // Debug log
+				const relatedNotes = await this.getNotesWithTag('&uncover', folderPath);
 
 				if (relatedNotes.length === 0) {
-					editor.replaceSelection('No related notes with the #uncover tag found.');
+					editor.replaceSelection('No related notes with the &uncover tag found.');
 					return;
 				}
 
@@ -58,17 +59,26 @@ export default class UncoverPlugin extends Plugin {
 	/**
 	 * Fetches notes with the specified tag under a folder.
 	 */
-	getNotesWithTag(tag: string, folderPath: string): string[] {
+	async getNotesWithTag(tag: string, folderPath: string): Promise<string[]> {
 		const notes: string[] = [];
-		this.app.vault.getFiles().forEach(file => {
+		const files = this.app.vault.getFiles();
+
+		for (const file of files) {
 			if (file.path.startsWith(folderPath)) {
-				this.app.vault.read(file).then(content => {
+				try {
+					const content = await this.app.vault.read(file);
+					console.log(`Processing file: ${file.path}`); // Debug log
+					console.log(`File content: ${content}`); // Log file content
 					if (content.includes(tag)) {
+						console.log(`File contains tag: ${file.path}`); // Debug log
 						notes.push(file.path);
 					}
-				});
+				} catch (error) {
+					console.error(`Error reading file: ${file.path}`, error);
+				}
 			}
-		});
+		}
+
 		return notes;
 	}
 
@@ -96,6 +106,7 @@ export default class UncoverPlugin extends Plugin {
 		const openai = new OpenAI({
 			organization: ORG_ID,
 			project: PROJECT_ID,
+			apiKey: OPENAI_API_KEY
 		});
 
 		try {

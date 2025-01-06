@@ -1,7 +1,7 @@
 {
 	"id": "writing-companion",
 	"name": "Writing Companion",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "0.15.0",
 	"description": "A plugin to read your notes and assist you in writing using OpenAI.",
 	"author": "Terry Kuo",
